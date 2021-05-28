@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: automuteus-pod
+  labels:
+    app: automuteus
+spec:
+  containers:
+    - name: postgres
+      image: docker.io/library/postgres:12-alpine
+      env:
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: POSTGRES_PASS
+      volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-data
+    - name: redis
+      image: docker.io/library/redis:alpine
+      volumeMounts:
+        - mountPath: /data
+          name: redis-data
+    - name: galactus
+      image: docker.io/automuteus/galactus:latest
+      ports:
+        - containerPort: 8123
+          hostPort: 8123
+      env:
+        - name: DISCORD_BOT_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: DISCORD_BOT_TOKEN
+        - name: BROKER_PORT
+          value: "8123"
+        - name: REDIS_ADDR
+          value: localhost:6379
+        - name: GALACTUS_PORT
+          value: "5858"
+    - name: automuteus
+      image: docker.io/denverquane/amongusdiscord:latest
+      env:
+        - name: DISCORD_BOT_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: DISCORD_BOT_TOKEN
+        - name: HOST
+          value: localhost
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: POSTGRES_USER
+        - name: POSTGRES_PASS
+          valueFrom:
+            configMapKeyRef:
+              name: automuteus-configmap
+              key: POSTGRES_PASS
+        - name: REDIS_ADDR
+          value: localhost:6379
+        - name: GALACTUS_ADDR
+          value: http://localhost:5858
+        - name: POSTGRES_ADDR
+          value: localhost:5432
+      volumeMounts:
+        - mountPath: /app/logs
+          name: bot-logs
+  volumes:
+    - name: bot-logs
+      persistentVolumeClaim:
+        claimName: bot-logs
+    - name: redis-data
+      persistentVolumeClaim:
+        claimName: redis-data
+    - name: postgres-data
+      persistentVolumeClaim:
+        claimName: postgres-data
+
